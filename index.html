@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Job Progress</title>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;         /* so it blends with SF surface */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .bar-row {
+      display: flex;
+      gap: 4px;
+    }
+    .bar {
+      width: 10px;
+      height: 80px;
+      background: rgba(120,120,120,0.5);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-inner {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      transform-origin: bottom;
+    }
+
+    /* Processing pulsing animation */
+    @keyframes processingWave {
+      0%   { height: 0%;   }
+      50%  { height: 100%; }
+      100% { height: 0%;   }
+    }
+
+    .state-N .bar-inner { height: 5%;  background: rgba(100,100,100,0.4); }
+    .state-U .bar-inner { height: 50%; background: rgba(228,169,85,0.6); }
+    .state-D .bar-inner { height: 100%; background: rgba(214,250,114,0.7); }
+    .state-F .bar-inner { height: 100%; background: rgba(255,80,80,0.8); }
+
+    .state-P .bar-inner {
+      background: rgba(5,121,255,0.7);
+      animation: processingWave 1.6s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="row" class="bar-row"></div>
+
+  <script>
+    function getStateString() {
+      const params = new URLSearchParams(location.search);
+      return params.get("state") || "";
+    }
+
+    function buildBars(state) {
+      const row = document.getElementById("row");
+      row.innerHTML = "";
+
+      for (let i = 0; i < state.length; i++) {
+        const ch = state[i]; // 'U', 'D', 'P', 'F', 'N'
+        const bar = document.createElement("div");
+        bar.className = "bar state-" + ch;
+
+        const inner = document.createElement("div");
+        inner.className = "bar-inner";
+
+        bar.appendChild(inner);
+        row.appendChild(bar);
+      }
+    }
+
+    buildBars(getStateString());
+  </script>
+</body>
+</html>
