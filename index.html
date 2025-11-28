@@ -151,4 +151,158 @@
   <div class="wrapper">
     <div class="header">
       <div class="title">Uploader Timeline</div>
-      <div class="state-la
+      <div class="state-label" id="stateLabel"></div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-swatch uploaded"></div>
+        <span>Uploaded (waiting)</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch processing"></div>
+        <span>Processing</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch finished"></div>
+        <span>Downloaded</span>
+      </div>
+    </div>
+
+    <div class="canvas-shell">
+      <canvas id="barsCanvas" width="920" height="260"></canvas>
+    </div>
+
+    <div class="footer">
+      <span>State driven by <code>?state=</code> in URL</span>
+      <span class="badge">Live Preview</span>
+    </div>
+  </div>
+
+  <script>
+    // --- STATE PARSING -------------------------------------------------------
+    const params = new URLSearchParams(location.search);
+    let stateStr = (params.get("state") || "").trim();
+
+    if (!stateStr) {
+      // default example if none provided
+      stateStr = "UUUPPPDDDDUUUPPPDDPPDDUUUPPPDDDDD";
+    }
+
+    // compact display in header
+    const stateLabel = document.getElementById("stateLabel");
+    stateLabel.textContent = stateStr.length > 80
+      ? stateStr.slice(0, 77) + "..."
+      : stateStr;
+
+    const states = stateStr.split("");
+
+    // --- CANVAS SETUP --------------------------------------------------------
+    const canvas = document.getElementById("barsCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    // configurable visual params
+    const MAX_BAR_WIDTH = 10;          // max width per bar
+    const MAX_BAR_HEIGHT_RATIO = 0.75; // max height relative to canvas
+    const BOTTOM_MARGIN_RATIO = 0.1;   // space below bars
+
+    // --- MAIN DRAW LOOP ------------------------------------------------------
+
+    function drawFrame(timeMs) {
+      const t = timeMs / 1000; // seconds
+
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      const n = states.length || 1;
+
+      // geometry: width + gap + centering
+      let elemWidth = WIDTH / n;
+      if (elemWidth > MAX_BAR_WIDTH) elemWidth = MAX_BAR_WIDTH;
+
+      const usedWidth = elemWidth * n;
+      const remaining = Math.max(0, WIDTH - usedWidth);
+      const gap = n > 1 ? remaining / (n - 1) : 0;
+      const groupWidth = usedWidth + gap * (n - 1);
+      const startX = (WIDTH - groupWidth) / 2;
+
+      const maxBarHeight = HEIGHT * MAX_BAR_HEIGHT_RATIO;
+      const bottom = HEIGHT * (1 - BOTTOM_MARGIN_RATIO);
+
+      for (let i = 0; i < n; i++) {
+        const st = states[i];
+        if (!st || st === "." || st === " ") continue;
+
+        const x = startX + i * (elemWidth + gap);
+
+        // base height: for now just a soft variation by index
+        const baseH = maxBarHeight * (0.4 + 0.6 * Math.abs(Math.sin(i * 0.37)));
+
+        let h = baseH;
+        let color = "#3e4655";
+
+        if (st === "D") {
+          // Downloaded/finished: static green-ish
+          color = "#a1f29a";
+          h = baseH;
+        } else if (st === "U") {
+          // Uploaded, waiting for download: gentle pulse
+          const pulse = 0.75 + 0.25 * Math.sin(t * 2.0 + i * 0.4); // 2 Hz
+          h = baseH * pulse;
+
+          const b = 150 + Math.round(40 * Math.sin(t * 2.5 + i));
+          const g = 190 + Math.round(20 * Math.sin(t * 1.7 + i * 0.5));
+          color = `rgb(120, ${g}, ${b})`; // bluish/purple pulse
+        } else if (st === "P") {
+          // Processing: stronger amplitude and warmer color
+          const pulse = 0.6 + 0.4 * Math.sin(t * 3.0 + i * 0.7); // faster, bigger
+          h = baseH * pulse;
+
+          const r = 230;
+          const g = 190 + Math.round(40 * Math.sin(t * 2.2 + i));
+          const b = 120;
+          color = `rgb(${r}, ${g}, ${b})`; // warm amber
+        } else {
+          // Unknown but active char: neutral bar
+          color = "#6b7280";
+          h = baseH * 0.8;
+        }
+
+        const y = bottom - h;
+
+        // glow under bars
+        const glowGrad = ctx.createRadialGradient(
+          x + elemWidth / 2,
+          bottom,
+          0,
+          x + elemWidth / 2,
+          bottom + 24,
+          elemWidth * 1.8
+        );
+        glowGrad.addColorStop(0, "rgba(0, 0, 0, 0.0)");
+        glowGrad.addColorStop(1, "rgba(0, 0, 0, 0.5)");
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(x - elemWidth, bottom, elemWidth * 3, 32);
+
+        // main bar
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, elemWidth, h);
+
+        // light highlight on top
+        const highlightGrad = ctx.createLinearGradient(x, y, x, y + h);
+        highlightGrad.addColorStop(0, "rgba(255, 255, 255, 0.16)");
+        highlightGrad.addColorStop(0.3, "rgba(255, 255, 255, 0.06)");
+        highlightGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+        ctx.fillStyle = highlightGrad;
+        ctx.fillRect(x, y, elemWidth, h);
+      }
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    requestAnimationFrame(drawFrame);
+  </script>
+</body>
+</html>
